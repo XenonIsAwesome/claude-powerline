@@ -42,6 +42,7 @@ import {
 import { resolveBudgetDisplay } from "../utils/budget";
 import type { BudgetItemConfig } from "../config/loader";
 import { shouldShowIcon } from "../utils/icon-visibility";
+import type { BarColorsConfig } from "../utils/bar-colors";
 import { SYMBOLS } from "../utils/constants";
 import { extractBgToFg } from "../utils/colors";
 
@@ -104,6 +105,8 @@ export type BarDisplayStyle =
   | "squares";
 
 export interface ContextSegmentConfig extends SegmentConfig {
+  /** Color the TUI bar by usage: `true` for green/yellow/red at 0/80/90%, or custom `{ from, color }` stops. */
+  barColors?: BarColorsConfig;
   showPercentageOnly?: boolean;
   displayStyle?: BarDisplayStyle;
   autocompactBuffer?: number;
@@ -122,6 +125,8 @@ export interface MetricsSegmentConfig extends SegmentConfig {
 export interface BlockSegmentConfig extends SegmentConfig {
   type: "cost" | "tokens" | "both" | "time" | "weighted";
   burnType?: "cost" | "tokens" | "both" | "none";
+  /** Color the TUI bar by usage: `true` for green/yellow/red at 0/80/90%, or custom `{ from, color }` stops. */
+  barColors?: BarColorsConfig;
   displayStyle?: BarDisplayStyle;
   /** Show the usage an even spend would have reached by now (default: false). */
   showPace?: boolean;
@@ -151,6 +156,8 @@ export interface EnvSegmentConfig extends SegmentConfig {
 }
 
 export interface WeeklySegmentConfig extends SegmentConfig {
+  /** Color the TUI bar by usage: `true` for green/yellow/red at 0/80/90%, or custom `{ from, color }` stops. */
+  barColors?: BarColorsConfig;
   displayStyle?: BarDisplayStyle;
   /** Show the usage an even spend would have reached by now (default: false). */
   showPace?: boolean;

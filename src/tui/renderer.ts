@@ -123,7 +123,7 @@ export async function renderTuiPanel(
         return buildContextLine(data, cellWidth, sym, reset, colors) ?? "";
       }
       if (segment === "context.bar") {
-        return buildContextBar(data, cellWidth, sym, reset, colors, pf);
+        return buildContextBar(data, cellWidth, sym, reset, colors, pf, config);
       }
       if (segment === "block.bar") {
         return buildBlockBar(data, cellWidth, sym, reset, colors, config, pf);

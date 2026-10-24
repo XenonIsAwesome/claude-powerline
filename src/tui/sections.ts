@@ -39,6 +39,8 @@ import type {
 } from "../segments/renderer";
 import { segmentPartNames } from "./types";
 import { colorize, truncateAnsi } from "./primitives";
+import { extractBgToFg } from "../utils/colors";
+import { resolveBarColor } from "../utils/bar-colors";
 import {
   getEffortLevel,
   getOutputStyleName,
@@ -154,10 +156,26 @@ function buildBarString(
   fgColor: string,
   bold = false,
   pacePct?: number,
+  roundedTrack?: string,
 ): string {
   barWidth = Math.max(5, barWidth);
   const filledCount = filledCells(pct, barWidth);
   const emptyCount = barWidth - filledCount;
+  if (roundedTrack !== undefined) {
+    const cells = Array.from({ length: barWidth }, (_, i) =>
+      i < filledCount ? fgColor + "█" : roundedTrack + "█",
+    );
+    cells[0] = fgColor + "◖";
+    cells[barWidth - 1] =
+      (filledCount >= barWidth ? fgColor : roundedTrack) + "◗";
+    if (pacePct !== undefined) {
+      const paceCell = Math.min(filledCells(pacePct, barWidth), barWidth - 1);
+      const marker = Math.round(pct) > pacePct ? sym.pace_over : sym.pace_under;
+      cells[paceCell] =
+        (paceCell < filledCount ? fgColor : roundedTrack) + marker;
+    }
+    return colorize(cells.join(""), fgColor, reset, bold);
+  }
   let bar =
     sym.bar_filled.repeat(filledCount) + sym.bar_empty.repeat(emptyCount);
   if (pacePct !== undefined) {
@@ -168,6 +186,33 @@ function buildBarString(
     bar = cells.join("");
   }
   return colorize(bar, fgColor, reset, bold);
+}
+
+function roundedTrackFor(
+  config: PowerlineConfig | undefined,
+  key: "context" | "block" | "weekly",
+  bgColor: string,
+): string | undefined {
+  if (
+    !config ||
+    findConfiguredSegment(config, key)?.displayStyle !== "rounded"
+  ) {
+    return undefined;
+  }
+  return extractBgToFg(bgColor);
+}
+
+function barColorFor(
+  config: PowerlineConfig | undefined,
+  key: "context" | "block" | "weekly",
+  pct: number,
+): string | undefined {
+  if (!config) return undefined;
+  return resolveBarColor(
+    pct,
+    findConfiguredSegment(config, key)?.barColors,
+    config.display.colorCompatibility,
+  );
 }
 
 function resolvePacePct(
@@ -212,6 +257,7 @@ export function buildContextBar(
   reset: string,
   colors: PowerlineColors,
   partFg?: Record<string, string>,
+  config?: PowerlineConfig,
 ): string {
   if (!data.contextInfo) return "";
   const usedPct = data.contextInfo.usablePercentage;
@@ -223,7 +269,16 @@ export function buildContextBar(
     colors.contextBold,
     colors,
   );
-  return buildBarString(usedPct, barWidth, sym, reset, fg, bold);
+  return buildBarString(
+    usedPct,
+    barWidth,
+    sym,
+    reset,
+    barColorFor(config, "context", usedPct) ?? fg,
+    bold,
+    undefined,
+    roundedTrackFor(config, "context", colors.contextBg),
+  );
 }
 
 export function buildBlockBar(
@@ -251,7 +306,16 @@ export function buildBlockBar(
     warningThreshold,
   );
   const pacePct = resolvePacePct(config, "block", data.blockInfo.timeRemaining);
-  return buildBarString(pct, barWidth, sym, reset, fg, bold, pacePct);
+  return buildBarString(
+    pct,
+    barWidth,
+    sym,
+    reset,
+    barColorFor(config, "block", pct) ?? fg,
+    bold,
+    pacePct,
+    roundedTrackFor(config, "block", colors.blockBg),
+  );
 }
 
 export function buildWeeklyBar(
@@ -280,7 +344,16 @@ export function buildWeeklyBar(
     "weekly",
     minutesUntilReset(sevenDay.resets_at),
   );
-  return buildBarString(pct, barWidth, sym, reset, fg, bold, pacePct);
+  return buildBarString(
+    pct,
+    barWidth,
+    sym,
+    reset,
+    barColorFor(config, "weekly", pct) ?? fg,
+    bold,
+    pacePct,
+    roundedTrackFor(config, "weekly", colors.weeklyBg),
+  );
 }
 
 export function buildContextLine(

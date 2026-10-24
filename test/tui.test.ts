@@ -1329,6 +1329,40 @@ describe("TUI Panel Rendering", () => {
       );
     });
 
+    it("draws rounded bars with the segment fg and bg colors", () => {
+      const colors = {
+        ...PLAIN_COLORS,
+        blockFg: "<fg>",
+        blockBg: "\x1b[48;2;10;20;30m",
+      };
+      const config = {
+        ...DEFAULT_CONFIG,
+        display: {
+          ...DEFAULT_CONFIG.display,
+          lines: [
+            {
+              segments: { block: { enabled: true, displayStyle: "rounded" } },
+            },
+          ],
+        },
+      } as any;
+      const tuiData = makeTuiData({
+        blockInfo: { nativeUtilization: 40, timeRemaining: 180 },
+      });
+      const bar = buildBlockBar(
+        tuiData,
+        10,
+        SYMBOLS as any,
+        "",
+        colors,
+        config,
+      );
+      const track = "\x1b[38;2;10;20;30m";
+      expect(bar).toBe(
+        `<fg><fg>◖<fg>█<fg>█<fg>█${track}█${track}█${track}█${track}█${track}█${track}◗`,
+      );
+    });
+
     it("shows the pace in the fixed layout", async () => {
       const result = await renderTuiPanel(
         data(),

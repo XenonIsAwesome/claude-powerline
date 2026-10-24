@@ -297,6 +297,21 @@ Opt-in (`enabled: false` by default). Resets on the 1st of each month.
 | `rounded` | █ (segment fg) | █ (segment bg) | `◖███████◗ 50%` |
 | `squares` | ◼ | ◻ | `◼◼◼◼◼◻◻◻◻◻ 50%` |
 
+#### Usage-based bar colors (TUI)
+
+Set `barColors` on `context`, `block` or `weekly` to color the TUI bar by usage. `true` uses green below 80%, yellow from 80%, red from 90%. For custom thresholds and colors, pass a list of `{ from, color }` stops; the stop with the highest `from` at or below the current percentage wins.
+
+```json
+"block": {
+  "enabled": true,
+  "barColors": [
+    { "from": 0, "color": "#a6e3a1" },
+    { "from": 70, "color": "#f9e2af" },
+    { "from": 85, "color": "#f38ba8" }
+  ]
+}
+```
+
 **Symbols:** `◔` Context (unicode) &#8226; `C` Context (text)
 
 #### Model Context Limits
