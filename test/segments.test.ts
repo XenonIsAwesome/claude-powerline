@@ -1387,6 +1387,23 @@ describe("Segment Time Logic", () => {
       expect(at100!.text).toMatch(/^━{10}/);
     });
 
+    it("should tint rounded style with the segment fg and bg colors", () => {
+      const tinted = {
+        ...colors,
+        contextBg: "\x1b[48;2;10;20;30m",
+        contextFg: "\x1b[38;2;200;100;50m",
+      };
+      const result = renderer.renderContext(mkContext(50), tinted, {
+        enabled: true,
+        displayStyle: "rounded",
+      });
+      const text = result!.text;
+      const plain = text.replace(/\x1b\[[0-9;]*m/g, "");
+      expect(plain).toMatch(/^◖█{8}◗ /);
+      expect(text).toContain("\x1b[38;2;200;100;50m█");
+      expect(text).toContain("\x1b[38;2;10;20;30m█");
+    });
+
     it("should render ball style with exactly one position marker", () => {
       const result = renderer.renderContext(mkContext(50), colors, {
         enabled: true,

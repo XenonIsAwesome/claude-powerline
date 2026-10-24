@@ -43,6 +43,7 @@ import { resolveBudgetDisplay } from "../utils/budget";
 import type { BudgetItemConfig } from "../config/loader";
 import { shouldShowIcon } from "../utils/icon-visibility";
 import { SYMBOLS } from "../utils/constants";
+import { extractBgToFg } from "../utils/colors";
 
 export interface SegmentConfig {
   enabled: boolean;
@@ -99,6 +100,7 @@ export type BarDisplayStyle =
   | "filled"
   | "geometric"
   | "line"
+  | "rounded"
   | "squares";
 
 export interface ContextSegmentConfig extends SegmentConfig {
@@ -249,6 +251,13 @@ interface BarStyleDef {
   empty: string;
   cap?: string;
   marker?: string;
+  /** Curved end caps; cells are tinted with the segment's own colors. */
+  rounded?: { left: string; right: string; cell: string };
+}
+
+interface BarTint {
+  bgColor: string;
+  fgColor: string;
 }
 
 const BAR_STYLES: Record<string, BarStyleDef> = {
@@ -260,6 +269,11 @@ const BAR_STYLES: Record<string, BarStyleDef> = {
   filled: { filled: "■", empty: "□" },
   geometric: { filled: "▰", empty: "▱" },
   line: { filled: "━", empty: "┄" },
+  rounded: {
+    filled: "█",
+    empty: "█",
+    rounded: { left: "◖", right: "◗", cell: "█" },
+  },
   squares: { filled: "◼", empty: "◻" },
 };
 
@@ -518,7 +532,10 @@ export class SegmentRenderer {
     const emptyPct = mode === "remaining" ? "100%" : "0%";
     if (!contextInfo) {
       if (barStyleDef) {
-        const emptyBar = barStyleDef.empty.repeat(barLength);
+        const emptyBar = this.buildBar(barStyleDef, 0, barLength, {
+          bgColor: colors.contextBg,
+          fgColor: colors.contextFg,
+        });
         return {
           text: `${emptyBar} ${emptyPct}`,
           bgColor: colors.contextBg,
@@ -555,6 +572,7 @@ export class SegmentRenderer {
         barStyleDef,
         contextInfo.usablePercentage,
         barLength,
+        { bgColor, fgColor },
       );
 
       const text = config?.showPercentageOnly
@@ -572,27 +590,61 @@ export class SegmentRenderer {
     return { text, bgColor, fgColor, bold };
   }
 
-  private buildBar(s: BarStyleDef, pct: number, barLength: number): string {
+  private buildBar(
+    s: BarStyleDef,
+    pct: number,
+    barLength: number,
+    tint?: BarTint,
+  ): string {
+    return this.buildBarCells(s, pct, barLength, tint).join("");
+  }
+
+  private buildBarCells(
+    s: BarStyleDef,
+    pct: number,
+    barLength: number,
+    tint?: BarTint,
+  ): string[] {
     const filledCount = filledCells(pct, barLength);
     const emptyCount = barLength - filledCount;
+    if (s.rounded && tint) {
+      const track = extractBgToFg(tint.bgColor);
+      const cell = (i: number) =>
+        i < filledCount
+          ? `${tint.fgColor}${s.rounded!.cell}`
+          : `${track}${s.rounded!.cell}`;
+      const cells = Array.from({ length: barLength }, (_, i) => cell(i));
+      cells[0] = `${tint.fgColor}${s.rounded.left}`;
+      cells[barLength - 1] =
+        filledCount >= barLength
+          ? `${tint.fgColor}${s.rounded.right}`
+          : `${track}${s.rounded.right}`;
+      // Hand the segment's own colors back for the text that follows
+      cells[barLength - 1] += `${tint.bgColor}${tint.fgColor}`;
+      return cells;
+    }
     if (s.marker) {
       const pos = Math.min(filledCount, barLength - 1);
-      return (
-        s.filled.repeat(pos) + s.marker + s.empty.repeat(barLength - pos - 1)
-      );
+      return [
+        ...s.filled.repeat(pos),
+        s.marker,
+        ...s.empty.repeat(barLength - pos - 1),
+      ];
     }
     if (s.cap) {
       if (filledCount === 0) {
-        return s.cap + s.empty.repeat(barLength - 1);
+        return [s.cap, ...s.empty.repeat(barLength - 1)];
       }
       if (filledCount >= barLength) {
-        return s.filled.repeat(barLength);
+        return [...s.filled.repeat(barLength)];
       }
-      return (
-        s.filled.repeat(filledCount - 1) + s.cap + s.empty.repeat(emptyCount)
-      );
+      return [
+        ...s.filled.repeat(filledCount - 1),
+        s.cap,
+        ...s.empty.repeat(emptyCount),
+      ];
     }
-    return s.filled.repeat(filledCount) + s.empty.repeat(emptyCount);
+    return [...s.filled.repeat(filledCount), ...s.empty.repeat(emptyCount)];
   }
 
   private resolveBarStyleDef(style: string): BarStyleDef | null {
@@ -606,6 +658,7 @@ export class SegmentRenderer {
     displayStyle?: BarDisplayStyle,
     timeStr?: string | null,
     pacePct?: number,
+    tint?: BarTint,
   ): string {
     const style = displayStyle ?? "text";
     const barStyleDef = this.resolveBarStyleDef(style);
@@ -613,16 +666,22 @@ export class SegmentRenderer {
     const pctStr = pacePct === undefined ? `${pct}%` : `${pct}%/${pacePct}%`;
 
     if (barStyleDef) {
-      let bar = this.buildBar(barStyleDef, pct, barLength);
+      const cells = this.buildBarCells(barStyleDef, pct, barLength, tint);
+      let bar = cells.join("");
       if (pacePct !== undefined) {
-        const cells = [...bar];
         const paceCell = Math.min(
           filledCells(pacePct, barLength),
           barLength - 1,
         );
         // Only the `bar` style draws its cells from the charset's symbols.
         const markers = style === "bar" ? this.symbols : SYMBOLS;
-        if (cells[paceCell] === barStyleDef.marker) {
+        if (barStyleDef.rounded) {
+          // Replace only the glyph so the cell keeps its color
+          cells[paceCell] = (cells[paceCell] ?? "").replace(
+            /[█◖◗]/u,
+            pct > pacePct ? markers.pace_over : markers.pace_under,
+          );
+        } else if (cells[paceCell] === barStyleDef.marker) {
           cells[paceCell] = "◈";
         } else {
           cells[paceCell] =
@@ -743,7 +802,7 @@ export class SegmentRenderer {
     }
 
     return {
-      text: `${this.leadingIcon(this.symbols.block_cost, config)}${this.formatPercentageWithBar(pct, config?.displayStyle, timeStr, pacePct)}`,
+      text: `${this.leadingIcon(this.symbols.block_cost, config)}${this.formatPercentageWithBar(pct, config?.displayStyle, timeStr, pacePct, { bgColor, fgColor })}`,
       bgColor,
       fgColor,
       bold,
@@ -779,7 +838,7 @@ export class SegmentRenderer {
     }
 
     return {
-      text: `${this.leadingIcon(this.symbols.weekly_cost, config)}${this.formatPercentageWithBar(pct, config?.displayStyle, timeStr, pacePct)}`,
+      text: `${this.leadingIcon(this.symbols.weekly_cost, config)}${this.formatPercentageWithBar(pct, config?.displayStyle, timeStr, pacePct, { bgColor, fgColor })}`,
       bgColor,
       fgColor,
       bold,

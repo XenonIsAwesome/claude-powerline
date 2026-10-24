@@ -294,6 +294,7 @@ Opt-in (`enabled: false` by default). Resets on the 1st of each month.
 | `filled` | ■ | □ | `■■■■■□□□□□ 50%` |
 | `geometric` | ▰ | ▱ | `▰▰▰▰▰▱▱▱▱▱ 50%` |
 | `line` | ━ | ┄ | `━━━━━┄┄┄┄┄ 50%` |
+| `rounded` | █ (segment fg) | █ (segment bg) | `◖███████◗ 50%` |
 | `squares` | ◼ | ◻ | `◼◼◼◼◼◻◻◻◻◻ 50%` |
 
 **Symbols:** `◔` Context (unicode) &#8226; `C` Context (text)
@@ -354,6 +355,7 @@ Requires Claude Code's native `rate_limits` hook data (Claude.ai Pro/Max subscri
 | `filled` | `◱ ■■□□□□□□□□ 23% (4h 12m)` |
 | `geometric` | `◱ ▰▰▱▱▱▱▱▱▱▱ 23% (4h 12m)` |
 | `line` | `◱ ━━┄┄┄┄┄┄┄┄ 23% (4h 12m)` |
+| `rounded` | `◱ ◖██████◗ 23% (4h 12m)` |
 | `squares` | `◱ ◼◼◻◻◻◻◻◻◻◻ 23% (4h 12m)` |
 | `ball` | `◱ ──●─────── 23% (4h 12m)` |
 

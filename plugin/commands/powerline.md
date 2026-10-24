@@ -271,7 +271,7 @@ Then ask:
   - "blocks" -> Set `chosen_bar_style=blocks`
   - "dots" -> Set `chosen_bar_style=dots`
 
-If the user types "geometric", "line", "filled", "squares", "capped", "ball", or "blocks-line" in the free text field, accept that as their choice. All valid display styles: text, ball, bar, blocks, blocks-line, capped, dots, filled, geometric, line, squares.
+If the user types "geometric", "line", "filled", "squares", "capped", "ball", or "blocks-line" in the free text field, accept that as their choice. All valid display styles: text, ball, bar, blocks, blocks-line, capped, dots, filled, geometric, line, rounded, squares.
 
 Apply `chosen_bar_style` to the `displayStyle` field of context, block, and weekly segments in the config.
 
