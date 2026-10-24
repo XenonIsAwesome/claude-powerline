@@ -1404,6 +1404,30 @@ describe("Segment Time Logic", () => {
       expect(text).toContain("\x1b[38;2;10;20;30m█");
     });
 
+    it("should color the bar by usage with barColors", () => {
+      const tinted = {
+        ...colors,
+        contextBg: "\x1b[48;2;10;20;30m",
+        contextFg: "\x1b[38;2;1;2;3m",
+      };
+      const green = "\x1b[38;2;166;227;161m";
+      const red = "\x1b[38;2;243;139;168m";
+      const render = (pct: number, displayStyle: "blocks" | "rounded") =>
+        renderer.renderContext(mkContext(pct), tinted, {
+          enabled: true,
+          displayStyle,
+          barColors: true,
+        })!.text;
+
+      const low = render(30, "blocks");
+      expect(low.startsWith(green)).toBe(true);
+      expect(low).toContain("\x1b[48;2;10;20;30m\x1b[38;2;1;2;3m ");
+      expect(render(95, "blocks").startsWith(red)).toBe(true);
+      expect(render(95, "rounded")).toContain(`${red}◖`);
+      // 95% switches the segment to its critical colors; text keeps those
+      expect(render(95, "rounded")).toContain("#991b1b#fca5a5 ");
+    });
+
     it("should render ball style with exactly one position marker", () => {
       const result = renderer.renderContext(mkContext(50), colors, {
         enabled: true,

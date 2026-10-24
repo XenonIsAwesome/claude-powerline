@@ -297,9 +297,9 @@ Opt-in (`enabled: false` by default). Resets on the 1st of each month.
 | `rounded` | █ (segment fg) | █ (segment bg) | `◖███████◗ 50%` |
 | `squares` | ◼ | ◻ | `◼◼◼◼◼◻◻◻◻◻ 50%` |
 
-#### Usage-based bar colors (TUI)
+#### Usage-based bar colors
 
-Set `barColors` on `context`, `block` or `weekly` to color the TUI bar by usage. `true` uses green below 80%, yellow from 80%, red from 90%. For custom thresholds and colors, pass a list of `{ from, color }` stops; the stop with the highest `from` at or below the current percentage wins.
+Set `barColors` on `context`, `block` or `weekly` to color the bar by usage (in both the TUI and the regular powerline style). `true` uses green below 80%, yellow from 80%, red from 90%. For custom thresholds and colors, pass a list of `{ from, color }` stops; the stop with the highest `from` at or below the current percentage wins.
 
 ```json
 "block": {

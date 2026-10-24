@@ -42,6 +42,7 @@ import {
 import { resolveBudgetDisplay } from "../utils/budget";
 import type { BudgetItemConfig } from "../config/loader";
 import { shouldShowIcon } from "../utils/icon-visibility";
+import { resolveBarColor } from "../utils/bar-colors";
 import type { BarColorsConfig } from "../utils/bar-colors";
 import { SYMBOLS } from "../utils/constants";
 import { extractBgToFg } from "../utils/colors";
@@ -105,7 +106,7 @@ export type BarDisplayStyle =
   | "squares";
 
 export interface ContextSegmentConfig extends SegmentConfig {
-  /** Color the TUI bar by usage: `true` for green/yellow/red at 0/80/90%, or custom `{ from, color }` stops. */
+  /** Color the bar by usage: `true` for green/yellow/red at 0/80/90%, or custom `{ from, color }` stops. */
   barColors?: BarColorsConfig;
   showPercentageOnly?: boolean;
   displayStyle?: BarDisplayStyle;
@@ -125,7 +126,7 @@ export interface MetricsSegmentConfig extends SegmentConfig {
 export interface BlockSegmentConfig extends SegmentConfig {
   type: "cost" | "tokens" | "both" | "time" | "weighted";
   burnType?: "cost" | "tokens" | "both" | "none";
-  /** Color the TUI bar by usage: `true` for green/yellow/red at 0/80/90%, or custom `{ from, color }` stops. */
+  /** Color the bar by usage: `true` for green/yellow/red at 0/80/90%, or custom `{ from, color }` stops. */
   barColors?: BarColorsConfig;
   displayStyle?: BarDisplayStyle;
   /** Show the usage an even spend would have reached by now (default: false). */
@@ -156,7 +157,7 @@ export interface EnvSegmentConfig extends SegmentConfig {
 }
 
 export interface WeeklySegmentConfig extends SegmentConfig {
-  /** Color the TUI bar by usage: `true` for green/yellow/red at 0/80/90%, or custom `{ from, color }` stops. */
+  /** Color the bar by usage: `true` for green/yellow/red at 0/80/90%, or custom `{ from, color }` stops. */
   barColors?: BarColorsConfig;
   displayStyle?: BarDisplayStyle;
   /** Show the usage an even spend would have reached by now (default: false). */
@@ -265,6 +266,8 @@ interface BarStyleDef {
 interface BarTint {
   bgColor: string;
   fgColor: string;
+  /** Usage-based `barColors` override for the bar cells (text keeps fgColor). */
+  barColor?: string;
 }
 
 const BAR_STYLES: Record<string, BarStyleDef> = {
@@ -579,7 +582,12 @@ export class SegmentRenderer {
         barStyleDef,
         contextInfo.usablePercentage,
         barLength,
-        { bgColor, fgColor },
+        this.barTint(
+          contextInfo.usablePercentage,
+          bgColor,
+          fgColor,
+          config?.barColors,
+        ),
       );
 
       const text = config?.showPercentageOnly
@@ -603,7 +611,30 @@ export class SegmentRenderer {
     barLength: number,
     tint?: BarTint,
   ): string {
-    return this.buildBarCells(s, pct, barLength, tint).join("");
+    return this.joinBar(this.buildBarCells(s, pct, barLength, tint), s, tint);
+  }
+
+  private joinBar(cells: string[], s: BarStyleDef, tint?: BarTint): string {
+    const bar = cells.join("");
+    if (!tint?.barColor || s.rounded) return bar;
+    return `${tint.barColor}${bar}${tint.bgColor}${tint.fgColor}`;
+  }
+
+  private barTint(
+    pct: number,
+    bgColor: string,
+    fgColor: string,
+    barColors: BarColorsConfig | undefined,
+  ): BarTint {
+    return {
+      bgColor,
+      fgColor,
+      barColor: resolveBarColor(
+        pct,
+        barColors,
+        this.config.display?.colorCompatibility,
+      ),
+    };
   }
 
   private buildBarCells(
@@ -616,15 +647,16 @@ export class SegmentRenderer {
     const emptyCount = barLength - filledCount;
     if (s.rounded && tint) {
       const track = extractBgToFg(tint.bgColor);
+      const cellFg = tint.barColor ?? tint.fgColor;
       const cell = (i: number) =>
         i < filledCount
-          ? `${tint.fgColor}${s.rounded!.cell}`
+          ? `${cellFg}${s.rounded!.cell}`
           : `${track}${s.rounded!.cell}`;
       const cells = Array.from({ length: barLength }, (_, i) => cell(i));
-      cells[0] = `${tint.fgColor}${s.rounded.left}`;
+      cells[0] = `${cellFg}${s.rounded.left}`;
       cells[barLength - 1] =
         filledCount >= barLength
-          ? `${tint.fgColor}${s.rounded.right}`
+          ? `${cellFg}${s.rounded.right}`
           : `${track}${s.rounded.right}`;
       // Hand the segment's own colors back for the text that follows
       cells[barLength - 1] += `${tint.bgColor}${tint.fgColor}`;
@@ -674,7 +706,7 @@ export class SegmentRenderer {
 
     if (barStyleDef) {
       const cells = this.buildBarCells(barStyleDef, pct, barLength, tint);
-      let bar = cells.join("");
+      let bar = this.joinBar(cells, barStyleDef, tint);
       if (pacePct !== undefined) {
         const paceCell = Math.min(
           filledCells(pacePct, barLength),
@@ -694,7 +726,7 @@ export class SegmentRenderer {
           cells[paceCell] =
             pct > pacePct ? markers.pace_over : markers.pace_under;
         }
-        bar = cells.join("");
+        bar = this.joinBar(cells, barStyleDef, tint);
       }
       return timeStr ? `${bar} ${pctStr} (${timeStr})` : `${bar} ${pctStr}`;
     }
@@ -809,7 +841,7 @@ export class SegmentRenderer {
     }
 
     return {
-      text: `${this.leadingIcon(this.symbols.block_cost, config)}${this.formatPercentageWithBar(pct, config?.displayStyle, timeStr, pacePct, { bgColor, fgColor })}`,
+      text: `${this.leadingIcon(this.symbols.block_cost, config)}${this.formatPercentageWithBar(pct, config?.displayStyle, timeStr, pacePct, this.barTint(pct, bgColor, fgColor, config?.barColors))}`,
       bgColor,
       fgColor,
       bold,
@@ -845,7 +877,7 @@ export class SegmentRenderer {
     }
 
     return {
-      text: `${this.leadingIcon(this.symbols.weekly_cost, config)}${this.formatPercentageWithBar(pct, config?.displayStyle, timeStr, pacePct, { bgColor, fgColor })}`,
+      text: `${this.leadingIcon(this.symbols.weekly_cost, config)}${this.formatPercentageWithBar(pct, config?.displayStyle, timeStr, pacePct, this.barTint(pct, bgColor, fgColor, config?.barColors))}`,
       bgColor,
       fgColor,
       bold,
